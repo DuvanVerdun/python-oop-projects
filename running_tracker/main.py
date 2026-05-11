@@ -1,4 +1,9 @@
 import re
+import json
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+FILE_PATH = BASE_DIR / "runs.json"
 
 
 class Race:
@@ -18,6 +23,11 @@ class Race:
         self._distance_km = distance_km
         self._time_seconds = time_seconds
 
+    @classmethod
+    def from_dict(cls, data: dict[str, object]) -> Race:
+        """Creates a Race instance from a dictionary containing distance and time."""
+        return cls(distance_km=data["distance_km"], time_seconds=data["time_seconds"])
+
     @property
     def distance_km(self) -> float:
         """Returns the distance of the race in kilometers."""
@@ -33,11 +43,18 @@ class Race:
         """Calculates and returns the pace of the race in seconds per kilometer."""
         return self._time_seconds / self._distance_km
 
+    def to_dict(self) -> dict[str, float | int]:
+        """Converts the Race instance to a dictionary format."""
+        return {"distance_km": self._distance_km, "time_seconds": self._time_seconds}
+
 
 class RunningTracker:
     """Manages a collection of races and provides methods to add races and retrieve them."""
     def __init__(self):
         self._races: list[Race] = []
+
+    def load_races(self, races: list[Race]) -> None:
+        self._races = races
 
     def add_race(self, distance_km: float, time_seconds: int) -> None:
         """Adds a new race to the tracker after validating the input."""
@@ -52,6 +69,26 @@ class RunningTracker:
         if not 0 <= index < len(self._races):
             raise IndexError("Race index out of range.")
         return self._races[index]
+
+
+class FileManager:
+    """Handles loading and saving of race data to and form a JSON file."""
+    def load(self) -> list[Race]:
+        """Loads races from a JSON file and returns them as a list of Race objects."""
+        try:
+            with open(FILE_PATH, "r") as f:
+                raw_data = json.load(f)
+        except FileNotFoundError:
+            return []
+        except json.JSONDecodeError:
+            return []
+        return [Race.from_dict(item) for item in raw_data]
+
+    def save(self, races: list[Race]) -> None:
+        """Converts the current list of races to dictionaries and saves them to a JSON file."""
+        raw_data = [race.to_dict() for race in races]
+        with open(FILE_PATH, "w") as f:
+            json.dump(raw_data, f, indent=4)
 
 
 # CLI Flows
@@ -121,21 +158,61 @@ def format_seconds_to_time(seconds: int | float) -> str:
     return f"{int(minutes)}:{seconds:02.0f}"
 
 
+def load_from_file_flow(tracker: RunningTracker, file_manager: FileManager, race: type[Race]) -> None:
+    """Handles the user input flow for loading races from a file."""
+    while True:
+        confirmation = input("This will overwrite your current data. Do you want to continue? (yes/no): ").strip()
+        if confirmation.lower() == "yes":
+            loaded_races = file_manager.load()
+            tracker.load_races(loaded_races)
+            print("Data loaded successfully.")
+            break
+        elif confirmation.lower() == "no":
+            print("Load cancelled. Returning to main menu.")
+            break
+        else:
+            print("Invalid input. Please enter 'yes' or 'no'.")
+
+
+def save_to_file_flow(tracker: RunningTracker, file_manager: FileManager, race: type[Race]) -> None:
+    """Handles the user input flow for saving races to a file."""
+    while True:
+        confirmation = input("This will overwrite your saved data. Do you want to continue? (yes/no): ").strip()
+        if confirmation.lower() == "yes":
+            file_manager.save(tracker.get_all_races())
+            print("Data saved successfully.")
+            break
+        elif confirmation.lower() == "no":
+            print("Save cancelled. Returning to main menu.")
+            break
+        else:
+            print("Invalid input. Please enter 'yes' or 'no'.")
+
+
 ACTIONS = {
     "add race": add_race_flow,
     "calculate pace": calculate_pace_flow
 }
 
+FILE_ACTIONS = {
+    "load": load_from_file_flow,
+    "save": save_to_file_flow
+}
+
 tracker = RunningTracker()
+file_manager = FileManager()
 
 # Main CLI loop
 while True:
-    user_action = input("Choose an action (add race/calculate pace/quit): ").strip().lower()
+    user_action = input("Choose an action (add race/calculate pace/save/load/quit): ").strip().lower()
     if user_action == "quit":
         print("Exiting the program.")
         break
     action = ACTIONS.get(user_action)
+    file_action = FILE_ACTIONS.get(user_action)
     if action:
         action(tracker)
+    elif file_action:
+        file_action(tracker, file_manager, Race)
     else:
-        print("Invalid action. Please choose 'add race', 'calculate pace', or 'quit'.")
+        print("Invalid action. Please choose 'add race', 'calculate pace', 'save', 'load', or 'quit'.")
