@@ -66,7 +66,10 @@ class RunningTracker:
 
     def load_races(self, races: list[Race]) -> None:
         """Loads a list of races into the tracker, replacing any existing data."""
-        self.load_next_id(max(race.race_id for race in races) + 1)
+        try:
+            self.load_next_id(max(race.race_id for race in races) + 1)
+        except ValueError:
+            self.load_next_id(1)
         self._races = races
 
     def load_next_id(self, next_id: int) -> None:
@@ -145,7 +148,7 @@ def calculate_pace_flow(tracker: RunningTracker) -> None:
     if not tracker.get_all_races():
         print("No races available.")
         return
-    print_formatted_races(tracker)
+    display_races(tracker)
     while True:
         user_id = input("Select a race by number to calculate pace ('Type menu to return to main menu'): ").strip()
         if user_id.lower() == "menu":
@@ -164,7 +167,7 @@ def calculate_pace_flow(tracker: RunningTracker) -> None:
         break
 
 
-def print_formatted_races(tracker: RunningTracker) -> None:
+def display_races(tracker: RunningTracker) -> None:
     """Prints the list of races in a formatted manner for user selection."""
     raw_races = tracker.get_all_races()
     lines: list[str] = []
@@ -178,6 +181,14 @@ def format_seconds_to_time(seconds: int | float) -> str:
     """Formats a given number of seconds into a MM:SS string format."""
     minutes, seconds = divmod(seconds, 60)
     return f"{int(minutes)}:{seconds:02.0f}"
+
+
+def show_history(tracker: RunningTracker) -> None:
+    """Displays the history of all races stored in the tracker."""
+    if not tracker.get_all_races():
+        print("No races available.")
+        return
+    display_races(tracker)
 
 
 def load_from_file_flow(tracker: RunningTracker, file_manager: FileManager) -> None:
@@ -213,7 +224,8 @@ def save_to_file_flow(tracker: RunningTracker, file_manager: FileManager) -> Non
 
 ACTIONS = {
     "add race": add_race_flow,
-    "calculate pace": calculate_pace_flow
+    "calculate pace": calculate_pace_flow,
+    "show history": show_history
 }
 
 FILE_ACTIONS = {
@@ -226,7 +238,7 @@ file_manager = FileManager()
 
 # Main CLI loop
 while True:
-    user_action = input("Choose an action (add race/calculate pace/save/load/quit): ").strip().lower()
+    user_action = input("Choose an action (add race/calculate pace/show history/save/load/quit): ").strip().lower()
     if user_action == "quit":
         print("Exiting the program.")
         break
@@ -237,4 +249,4 @@ while True:
     elif file_action:
         file_action(tracker, file_manager)
     else:
-        print("Invalid action. Please choose 'add race', 'calculate pace', 'save', 'load', or 'quit'.")
+        print("Invalid action. Please choose 'add race', 'calculate pace', 'show history', 'save', 'load', or 'quit'.")
