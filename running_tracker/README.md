@@ -18,3 +18,11 @@ Input -> Parse -> Validate -> Store -> Retrieve -> Format -> Output
 - Separates business logic (Domain and Application) from presentation logic (CLI)
 - Add MM:SS parsing support (using re module)
 - Run system in a loop and give user the option to exit
+
+## V2 Improvements
+- Added JSON persistence (save/load)
+- Added persistent Run IDs
+- Added race history visualization
+- Added aggregate statistics (distance, time, average pace)
+- Improved architecture separation with FileManager
+- Introduced serialization/deserialization with to_dict/from_dict
