@@ -9,22 +9,22 @@ FILE_PATH = BASE_DIR / "runs.json"
 class Race:
     """Represents a single running race with distance and time. Provides a method to calculate pace."""
 
-    def __init__(self, id: int, distance_km: float, time_seconds: int):
-        if not isinstance(id, int):
+    def __init__(self, race_id: int, distance_km: float, time_seconds: int):
+        if not isinstance(race_id, int):
             raise TypeError("ID must be an integer.")
         if not isinstance(distance_km, (int, float)):
             raise TypeError("Distance must be numeric.")
         if not isinstance(time_seconds, int):
             raise TypeError("Time must be an integer.")
 
-        if id <= 0:
+        if race_id <= 0:
             raise ValueError("ID must be greater than zero.")
         if distance_km <= 0:
             raise ValueError("Distance must be greater than zero.")
         if time_seconds <= 0:
             raise ValueError("Time must be greater than zero.")
 
-        self._race_id = id
+        self._race_id = race_id
         self._distance_km = distance_km
         self._time_seconds = time_seconds
 
@@ -64,15 +64,33 @@ class RunningTracker:
         self._races: list[Race] = []
         self._next_id = 1
 
+    @property
+    def total_distance_km(self) -> float:
+        """Calculates and returns the total distance of all races in kilometers."""
+        return sum(race.distance_km for race in self._races)
+
+    @property
+    def total_time_seconds(self) -> int:
+        """Calculates and returns the total time of all races in seconds."""
+        return sum(race.time_seconds for race in self._races)
+
+    @property
+    def average_pace_seconds_per_km(self) -> float:
+        """Calculates and returns the average pace of all races in seconds per kilometer."""
+        total_distance = self.total_distance_km
+        if total_distance == 0:
+            return 0.0
+        return self.total_time_seconds / total_distance
+
     def load_races(self, races: list[Race]) -> None:
         """Loads a list of races into the tracker, replacing any existing data."""
         try:
-            self.load_next_id(max(race.race_id for race in races) + 1)
+            self._load_next_id(max(race.race_id for race in races) + 1)
         except ValueError:
-            self.load_next_id(1)
+            self._load_next_id(1)
         self._races = races
 
-    def load_next_id(self, next_id: int) -> None:
+    def _load_next_id(self, next_id: int) -> None:
         """Loads the next ID for the tracker."""
         self._next_id = next_id
 
@@ -179,16 +197,33 @@ def display_races(tracker: RunningTracker) -> None:
 
 def format_seconds_to_time(seconds: int | float) -> str:
     """Formats a given number of seconds into a MM:SS string format."""
-    minutes, seconds = divmod(seconds, 60)
-    return f"{int(minutes)}:{seconds:02.0f}"
+    minutes, formatted_seconds = divmod(seconds, 60)
+    if seconds >= 3600:
+        hours, minutes = divmod(minutes, 60)
+        return f"{int(hours)}:{int(minutes):02d}:{formatted_seconds:02.0f}"
+    return f"{int(minutes)}:{formatted_seconds:02.0f}"
 
 
-def show_history(tracker: RunningTracker) -> None:
+def show_history_flow(tracker: RunningTracker) -> None:
     """Displays the history of all races stored in the tracker."""
     if not tracker.get_all_races():
         print("No races available.")
         return
     display_races(tracker)
+
+
+def show_stats_flow(tracker: RunningTracker) -> None:
+    """Displays the total distance, total time, and average pace of all races in the tracker."""
+    if not tracker.get_all_races():
+        print("No races available.")
+        return
+    total_distance = tracker.total_distance_km
+    total_time = format_seconds_to_time(tracker.total_time_seconds)
+    average_pace = format_seconds_to_time(tracker.average_pace_seconds_per_km)
+
+    print(f"Total Distance: {total_distance} km")
+    print(f"Total Time: {total_time}")
+    print(f"Average Pace: {average_pace} min/km")
 
 
 def load_from_file_flow(tracker: RunningTracker, file_manager: FileManager) -> None:
@@ -225,7 +260,8 @@ def save_to_file_flow(tracker: RunningTracker, file_manager: FileManager) -> Non
 ACTIONS = {
     "add race": add_race_flow,
     "calculate pace": calculate_pace_flow,
-    "show history": show_history
+    "show history": show_history_flow,
+    "show stats": show_stats_flow
 }
 
 FILE_ACTIONS = {
@@ -238,15 +274,15 @@ file_manager = FileManager()
 
 # Main CLI loop
 while True:
-    user_action = input("Choose an action (add race/calculate pace/show history/save/load/quit): ").strip().lower()
-    if user_action == "quit":
+    user_action = input("Choose an action (add race/calculate pace/show history/show stats/save/load/quit): ").strip()
+    if user_action.lower() == "quit":
         print("Exiting the program.")
         break
-    action = ACTIONS.get(user_action)
-    file_action = FILE_ACTIONS.get(user_action)
+    action = ACTIONS.get(user_action.lower())
+    file_action = FILE_ACTIONS.get(user_action.lower())
     if action:
         action(tracker)
     elif file_action:
         file_action(tracker, file_manager)
     else:
-        print("Invalid action. Please choose 'add race', 'calculate pace', 'show history', 'save', 'load', or 'quit'.")
+        print("Invalid action. Please choose 'add race', 'calculate pace', 'show history', 'show stats', 'save', 'load', or 'quit'.")
